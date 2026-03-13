@@ -2,7 +2,8 @@ import streamlit as st
 import os
 import json
 import re
-from groq import Groq
+import urllib.request
+import urllib.error
 
 # ─────────────────────────────────────────────
 # PAGE CONFIG
@@ -317,27 +318,57 @@ Never truncate the JSON. Always close all brackets properly.
 # HELPERS
 # ─────────────────────────────────────────────
 
-def get_groq_client():
-    api_key = os.getenv("GROQ_API_KEY", "")
-    if not api_key:
-        api_key = st.session_state.get("groq_api_key", "")
-    if not api_key:
-        return None
-    return Groq(api_key=api_key)
+def get_api_key():
+    key = os.getenv("GROQ_API_KEY", "")
+    if not key:
+        try:
+            key = st.secrets.get("GROQ_API_KEY", "")
+        except Exception:
+            pass
+    if not key:
+        key = st.session_state.get("groq_api_key", "")
+    return key
 
 
-def chunk_code(code: str, max_chars: int = MAX_CHUNK_CHARS) -> list[str]:
+def groq_chat(api_key: str, system: str, user: str) -> str:
+    """Call Groq REST API using only stdlib urllib — no external packages needed."""
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    payload = json.dumps({
+        "model": MODEL_ID,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user",   "content": user},
+        ],
+        "temperature": 0.1,
+        "max_tokens": 4096,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    return data["choices"][0]["message"]["content"]
+
+
+def chunk_code(code: str, max_chars: int = MAX_CHUNK_CHARS) -> list:
     """Split large code into overlapping chunks."""
     if len(code) <= max_chars:
         return [code]
     chunks = []
-    step = max_chars - 500   # 500-char overlap
+    step = max_chars - 500
     for i in range(0, len(code), step):
         chunks.append(code[i:i + max_chars])
     return chunks
 
 
-def analyze_code(client: Groq, code: str, filename: str = "") -> dict:
+def analyze_code(api_key: str, code: str, filename: str = "") -> dict:
     """Send code to Groq and return parsed JSON result."""
     chunks = chunk_code(code)
     all_issues = []
@@ -348,17 +379,7 @@ def analyze_code(client: Groq, code: str, filename: str = "") -> dict:
         chunk_label = f"[Chunk {idx+1}/{len(chunks)}]" if len(chunks) > 1 else ""
         user_msg = f"Analyze the following HDL code or log file. Filename: `{filename}` {chunk_label}\n\n```\n{chunk}\n```"
 
-        response = client.chat.completions.create(
-            model=MODEL_ID,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": user_msg},
-            ],
-            temperature=0.1,
-            max_tokens=4096,
-        )
-
-        raw = response.choices[0].message.content.strip()
+        raw = groq_chat(api_key, SYSTEM_PROMPT, user_msg).strip()
 
         # Strip markdown fences if model adds them
         raw = re.sub(r"^```(?:json)?\n?", "", raw)
@@ -367,7 +388,6 @@ def analyze_code(client: Groq, code: str, filename: str = "") -> dict:
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
-            # Attempt to salvage partial JSON
             data = {
                 "summary": {
                     "language": "Unknown", "total_issues": 1,
@@ -396,9 +416,8 @@ def analyze_code(client: Groq, code: str, filename: str = "") -> dict:
 
         all_issues.extend(data.get("issues", []))
 
-    # Merge multi-chunk results
     if summary:
-        summary["total_issues"] = len(all_issues)
+        summary["total_issues"]     = len(all_issues)
         summary["error_count"]      = sum(1 for i in all_issues if i.get("severity") == "ERROR")
         summary["warning_count"]    = sum(1 for i in all_issues if i.get("severity") == "WARNING")
         summary["suggestion_count"] = sum(1 for i in all_issues if i.get("severity") == "SUGGESTION")
@@ -520,7 +539,7 @@ with st.sidebar:
     if api_input:
         st.session_state["groq_api_key"] = api_input
 
-    env_key = os.getenv("GROQ_API_KEY", "")
+    env_key = os.getenv("GROQ_API_KEY", "") or st.secrets.get("GROQ_API_KEY", "")
     if env_key:
         st.markdown('<div class="status-bar">✓ ENV KEY DETECTED</div>', unsafe_allow_html=True)
     elif api_input:
@@ -618,15 +637,15 @@ with run_col:
 # ─────────────────────────────────────────────
 
 if run_btn:
-    client = get_groq_client()
-    if not client:
+    api_key = get_api_key()
+    if not api_key:
         st.error("🔑 No Groq API key found. Enter it in the sidebar or set GROQ_API_KEY env variable.")
     elif not active_code:
         st.warning("⚠ No code provided. Upload a file or paste code above.")
     else:
         with st.spinner("🔍 Analyzing HDL with Groq LLM..."):
             try:
-                result = analyze_code(client, active_code, active_filename)
+                result = analyze_code(api_key, active_code, active_filename)
                 st.session_state["analysis_result"] = result
             except Exception as exc:
                 st.error(f"❌ Analysis failed: {exc}")
