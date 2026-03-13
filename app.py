@@ -532,27 +532,6 @@ with st.sidebar:
     st.markdown("## ⚡ FPGA·AI ANALYZER")
     st.markdown("---")
 
-    # API Key input
-    st.markdown("**API CONFIGURATION**")
-    api_input = st.text_input(
-        "Groq API Key",
-        value=st.session_state.get("groq_api_key", ""),
-        type="password",
-        placeholder="gsk_...",
-        help="Get your free API key at console.groq.com"
-    )
-    if api_input:
-        st.session_state["groq_api_key"] = api_input
-
-    env_key = os.getenv("GROQ_API_KEY", "") or st.secrets.get("GROQ_API_KEY", "")
-    if env_key:
-        st.markdown('<div class="status-bar">✓ ENV KEY DETECTED</div>', unsafe_allow_html=True)
-    elif api_input:
-        st.markdown('<div class="status-bar">✓ KEY SET IN SESSION</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="status-bar">✗ NO API KEY</div>', unsafe_allow_html=True)
-
-    st.markdown("---")
     st.markdown("**MODEL**")
     st.markdown(f'<div class="status-bar">⬡ {MODEL_ID}</div>', unsafe_allow_html=True)
 
@@ -760,8 +739,14 @@ if "analysis_result" in st.session_state:
 # ─────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""
-<div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:0.65rem;
-            color:#484f58;letter-spacing:2px;padding:10px 0;">
-FPGA·AI ANALYZER · GROQ LLM BACKEND · LLAMA3-70B · FOR ENGINEERING USE ONLY
+<div style="text-align:center;padding:10px 0;">
+    <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;
+                color:#484f58;letter-spacing:2px;margin-bottom:6px;">
+        FPGA·AI ANALYZER · GROQ LLM BACKEND · LLAMA3-70B · FOR ENGINEERING USE ONLY
+    </div>
+    <div style="font-family:'Rajdhani',sans-serif;font-size:0.85rem;
+                color:#8b949e;letter-spacing:2px;">
+        GELİŞTİRİCİ &nbsp;·&nbsp; <span style="color:#f7c948;font-weight:600;">ENES BOZ</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
