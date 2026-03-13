@@ -248,7 +248,7 @@ hr { border-color: #21262d; }
 # CONSTANTS
 # ─────────────────────────────────────────────
 SUPPORTED_EXTENSIONS = [".vhd", ".vhdl", ".v", ".sv", ".txt", ".log"]
-MODEL_ID = "llama3-70b-8192"
+MODEL_ID = "llama-3.3-70b-versatile"
 MAX_CHUNK_CHARS = 12000   # safe limit for context
 
 # ─────────────────────────────────────────────
