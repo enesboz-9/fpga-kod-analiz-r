@@ -1,17 +1,8 @@
-import subprocess
-import sys
-
-# Auto-install groq if missing
-try:
-    from groq import Groq
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "groq", "-q"])
-    from groq import Groq
-
 import streamlit as st
 import os
 import json
 import re
+from groq import Groq
 
 # ─────────────────────────────────────────────
 # PAGE CONFIG
