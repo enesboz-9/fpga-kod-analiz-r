@@ -1,7 +1,3 @@
-import os
-key = os.getenv("GROQ_API_KEY")
-if key is None:
-    st.error("API Anahtarı bulunamadı! Lütfen Secrets veya .env dosyasını kontrol edin.")
 import streamlit as st
 import os
 import json
@@ -326,7 +322,7 @@ def get_api_key():
     key = os.getenv("GROQ_API_KEY", "")
     if not key:
         try:
-            key = st.secrets.get("GROQ_API_KEY", "")
+            key = st.secrets["GROQ_API_KEY"]
         except Exception:
             pass
     if not key:
@@ -352,13 +348,18 @@ def groq_chat(api_key: str, system: str, user: str) -> str:
         data=payload,
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": "Bearer " + api_key.strip(),
+            "User-Agent": "fpga-analyzer/1.0",
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    return data["choices"][0]["message"]["content"]
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return data["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Groq API error {e.code}: {body}")
 
 
 def chunk_code(code: str, max_chars: int = MAX_CHUNK_CHARS) -> list:
