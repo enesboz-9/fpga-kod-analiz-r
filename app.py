@@ -1,3 +1,7 @@
+import os
+key = os.getenv("GROQ_API_KEY")
+if key is None:
+    st.error("API Anahtarı bulunamadı! Lütfen Secrets veya .env dosyasını kontrol edin.")
 import streamlit as st
 import os
 import json
